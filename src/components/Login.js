@@ -1,13 +1,20 @@
 import React, { useRef, useState } from 'react';
 import Header from './Header';
 import { checkValidateData } from '../utilities/Validation';
-import { createUserWithEmailAndPassword , signInWithEmailAndPassword} from "firebase/auth";
+import { createUserWithEmailAndPassword , signInWithEmailAndPassword, updateProfile} from "firebase/auth";
 import { auth } from '../utilities/firebase';
+import { useNavigate } from 'react-router-dom';
+import { useDispatch } from 'react-redux';
+import { addUser, removeUser } from '../utilities/userSlice';
+
 
 const Login = () => {
     const [isSignInForm, setIsSignInForm] = useState(true);
     const [errorMessage, setErrorMessage] = useState(true);
+    const navigate = useNavigate();
+    const dispatch = useDispatch();
 
+    const name = useRef(null);
     const email = useRef(null);
     const password = useRef(null);
 
@@ -23,41 +30,71 @@ const Login = () => {
 
       if(!isSignInForm) {
         // Sign Up Logic
-                  createUserWithEmailAndPassword(
-                    auth,
-                    email.current.value ,
-                    password.current.value
-                  )
-            .then((userCredential) => {
-              // Signed up 
-              const user = userCredential.user;
-              console.log(user);
-              // ...
-            })
-            .catch((error) => {
-              const errorCode = error.code;
-              const errorMessage = error.message;
-              setErrorMessage(errorCode + " " + errorMessage)
+        createUserWithEmailAndPassword(
+            auth,
+            email.current.value ,
+            password.current.value
+        )
+        .then((userCredential) => {
+            const user = userCredential.user; // Define user here
+            updateProfile(user, {
+                displayName: name.current.value,
+                photoURL: "https://www.google.com/url?sa=i&url=https%3A%2F%2Fscreenrant.com%2Fdeathstroke-hero-villain-reason-explained-dc-comics%2F&psig=AOvVaw0-o78iTfu_ZS2lyJiNUu9M&ust=1715098072836000&source=images&cd=vfe&opi=89978449&ved=0CBIQjRxqFwoTCPj5ur60-YUDFQAAAAAdAAAAABAE"
+            }).then(() => {
+                if (user) {
+                    const { uid, email, displayName, photoURL } = user;
+                    dispatch(
+                        addUser({ 
+                            uid: uid, 
+                            email: email, 
+                            displayName: displayName, 
+                            photoURL: photoURL 
+                        })
+                    );
+                } else {
+                    dispatch(removeUser());
+                }
+                navigate("/browse");
+            }).catch((error) => {
+                setErrorMessage(error.message)
             });
+        })
+        .catch((error) => {
+            const errorCode = error.code;
+            const errorMessage = error.message;
+            setErrorMessage(errorCode + " " + errorMessage)
+        });
 
       } else {
         // Sign In Logic
         signInWithEmailAndPassword(
-          auth, 
-          email.current.value , 
-          password.current.value )
+            auth, 
+            email.current.value, 
+            password.current.value
+        )
         .then((userCredential) => {
-    // Signed in 
-          
-    const user = userCredential.user;
-    console.log(user)
-    // ...
-  })
-  .catch((error) => {
-    const errorCode = error.code;
-    const errorMessage = error.message;
-    setErrorMessage(errorCode + " - " + errorMessage)
-  });
+            const user = userCredential.user; // Define user here
+            if (user) {
+                const { uid, email, displayName, photoURL } = user;
+                dispatch(
+                    addUser({ 
+                        uid: uid, 
+                        email: email, 
+                        displayName: displayName, 
+                        photoURL: photoURL 
+                    })
+                );
+            } else {
+                dispatch(removeUser());
+            }
+            navigate("/browse");
+        })
+        .catch((error) => {
+            const errorCode = error.code;
+            const errorMessage = error.message;
+            setErrorMessage(errorCode + " - " + errorMessage);
+        });
+        
 
 
       }
@@ -99,7 +136,7 @@ const Login = () => {
 
                             {!isSignInForm && (
                               <input 
-                         
+                                ref = {name}
                                 type="text"
                                 placeholder="Full Name"
                                 className="p-4 my-4 w-full bg-gray-700 opacity-50"
